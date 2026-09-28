@@ -38,7 +38,7 @@ type AdminRecord = {
 };
 
 const redirectSuperAdminIfAuthorized = async (user: FirebaseUser): Promise<boolean> => {
-  console.groupCollapsed('[EduFinance][ADMIN DIAGNOSTIC]');
+  console.log('========== EDUFINANCE ADMIN DIAGNOSTIC ==========');
   console.log('Firebase email:', user.email);
   console.log('Firebase UID:', user.uid);
   console.log('isAnonymous:', user.isAnonymous);
@@ -56,18 +56,20 @@ const redirectSuperAdminIfAuthorized = async (user: FirebaseUser): Promise<boole
 
     if (!adminSnap.exists()) {
       console.warn('Aucun document admins pour cet UID.');
-      console.groupEnd();
+      console.log('ADMIN DOCUMENT: ABSENT');
+      console.log('================================================');
       return false;
     }
 
     const admin = adminSnap.data() as AdminRecord;
-    console.log('Document admins:', admin);
-    console.log('role:', admin.role);
-    console.log('active:', admin.active);
+    console.log('ADMIN DOCUMENT: PRESENT');
+    console.log('ADMIN ROLE:', admin.role);
+    console.log('ADMIN ACTIVE:', admin.active);
 
     if (admin.active === true && admin.role === 'super_admin') {
       console.log('RESULTAT: SUPER_ADMIN AUTORISÉ → redirection Admin.');
-      console.groupEnd();
+      console.log('ADMIN RESULT: SUPER_ADMIN AUTHORIZED');
+      console.log('===============================================');
       window.location.assign(ADMIN_CONSOLE_URL);
       return true;
     }
@@ -79,7 +81,7 @@ const redirectSuperAdminIfAuthorized = async (user: FirebaseUser): Promise<boole
     console.error('Message Firebase:', (error as { message?: string })?.message);
   }
 
-  console.groupEnd();
+  console.log('================================================');
   return false;
 };
 
