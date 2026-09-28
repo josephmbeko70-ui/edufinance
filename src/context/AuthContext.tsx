@@ -44,17 +44,16 @@ type AdminRecord = {
 };
 
 /**
- * Vérifie si l'utilisateur connecté est un super_admin actif.
+ * Vérifie si l'utilisateur est un super_admin actif.
  *
  * IMPORTANT :
- * - active doit obligatoirement être un Boolean Firestore.
- * - "true" en tant que String n'est PAS accepté.
+ * active doit être un vrai Boolean Firestore.
+ * La valeur String "true" n'est PAS acceptée.
  */
 const redirectSuperAdminIfAuthorized = async (
   user: FirebaseUser
 ): Promise<boolean> => {
   console.log('========== EDUFINANCE ADMIN DIAGNOSTIC ==========');
-
   console.log('Firebase email:', user.email);
   console.log('Firebase UID:', user.uid);
   console.log('isAnonymous:', user.isAnonymous);
@@ -98,16 +97,32 @@ const redirectSuperAdminIfAuthorized = async (
     console.log('ADMIN DOCUMENT: PRESENT');
     console.log('ADMIN ROLE:', admin.role);
     console.log('ADMIN ACTIVE:', admin.active);
+
     console.log(
       'ADMIN ACTIVE TYPE:',
       typeof admin.active
     );
 
-    /**
-     * Le champ active doit être un vrai Boolean.
-     */
+    console.log(
+      'ADMIN ROLE TYPE:',
+      typeof admin.role
+    );
+
+    console.log(
+      'ADMIN ACTIVE JSON:',
+      JSON.stringify(admin.active)
+    );
+
+    console.log(
+      'ADMIN ROLE JSON:',
+      JSON.stringify(admin.role)
+    );
+
     const isActiveBoolean =
       typeof admin.active === 'boolean';
+
+    const isActive =
+      admin.active === true;
 
     const isSuperAdmin =
       admin.role === 'super_admin';
@@ -118,11 +133,27 @@ const redirectSuperAdminIfAuthorized = async (
     );
 
     console.log(
-      'ROLE EST SUPER_ADMIN:',
+      'ACTIVE === TRUE:',
+      isActive
+    );
+
+    console.log(
+      'ROLE === SUPER_ADMIN:',
       isSuperAdmin
     );
 
-    if (isActiveBoolean && admin.active === true && isSuperAdmin) {
+    /**
+     * CONDITION STRICTE
+     *
+     * active doit être Boolean true
+     * ET
+     * role doit être "super_admin"
+     */
+    if (
+      isActiveBoolean &&
+      isActive &&
+      isSuperAdmin
+    ) {
       console.log(
         'RESULTAT: SUPER_ADMIN AUTORISÉ → redirection Admin.'
       );
@@ -135,14 +166,14 @@ const redirectSuperAdminIfAuthorized = async (
         '==============================================='
       );
 
-      /**
-       * Très important :
-       * on arrête l'état de chargement AVANT la redirection.
-       * Cela évite de laisser MainApp bloqué sur le spinner.
+      /*
+       * Redirection vers le deuxième site.
+       * Aucun login n'est nécessaire sur Admin :
+       * Firebase conserve la session.
        */
-      setGlobalAuthLoading?.(false);
-
-      window.location.assign(ADMIN_CONSOLE_URL);
+      window.location.assign(
+        ADMIN_CONSOLE_URL
+      );
 
       return true;
     }
@@ -155,6 +186,10 @@ const redirectSuperAdminIfAuthorized = async (
       role: admin.role,
       active: admin.active,
       activeType: typeof admin.active,
+      roleType: typeof admin.role,
+      isActiveBoolean,
+      isActive,
+      isSuperAdmin,
     });
 
     console.log(
@@ -162,6 +197,7 @@ const redirectSuperAdminIfAuthorized = async (
     );
 
     return false;
+
   } catch (error) {
     console.error(
       'ERREUR LECTURE admins:',
@@ -186,17 +222,10 @@ const redirectSuperAdminIfAuthorized = async (
   }
 };
 
-/**
- * Référence permettant à la fonction de redirection
- * de terminer proprement le chargement avant navigation.
- */
-let setGlobalAuthLoading:
-  | ((loading: boolean) => void)
-  | null = null;
-
 export const AuthProvider: React.FC<{
   children: React.ReactNode;
 }> = ({ children }) => {
+
   const [currentUser, setCurrentUser] =
     useState<FirebaseUser | null>(null);
 
@@ -212,27 +241,14 @@ export const AuthProvider: React.FC<{
   const [loading, setLoading] =
     useState(true);
 
-  /**
-   * Rend le setter disponible à la fonction
-   * redirectSuperAdminIfAuthorized.
-   */
-  useEffect(() => {
-    setGlobalAuthLoading = setLoading;
-
-    return () => {
-      setGlobalAuthLoading = null;
-    };
-  }, []);
-
   useEffect(() => {
     let isMounted = true;
 
     const unsubscribe = onAuthStateChanged(
       auth,
       async (user) => {
-        if (!isMounted) return;
 
-        setCurrentUser(user);
+        if (!isMounted) return;
 
         console.log(
           '[EduFinance][AUTH] onAuthStateChanged:',
@@ -252,32 +268,46 @@ export const AuthProvider: React.FC<{
           }
         );
 
-        /**
+        /*
          * Aucun utilisateur connecté.
-         * On garde simplement la landing page.
          */
         if (!user) {
+          setCurrentUser(null);
           setProfile(null);
           setActiveRole('admin');
           setLoading(false);
           return;
         }
 
-        /**
-         * Vérification du super_admin.
+        /*
+         * Utilisateur connecté.
          */
-        const redirected = await redirectSuperAdminIfAuthorized(user);
-        
+        setCurrentUser(user);
+
+        /*
+         * Vérification SUPER ADMIN.
+         *
+         * Si autorisé :
+         * → redirection immédiate vers Admin.
+         */
+        const redirected =
+          await redirectSuperAdminIfAuthorized(user);
+
         if (redirected) {
+          /*
+           * On ne charge surtout pas le profil
+           * scolaire après la redirection.
+           */
           setLoading(false);
           return;
         }
 
-        /**
+        /*
          * Utilisateur normal.
          * Chargement de son profil scolaire.
          */
         try {
+
           const userDocRef = doc(
             db,
             'schools',
@@ -299,6 +329,7 @@ export const AuthProvider: React.FC<{
           }
 
           if (snap.exists()) {
+
             const data =
               snap.data() as UserProfile;
 
@@ -307,29 +338,38 @@ export const AuthProvider: React.FC<{
             setActiveRole(
               data.role || role
             );
+
           } else {
+
             const newProfile: UserProfile = {
               id: user.uid,
               schoolId,
               email:
                 user.email ||
                 'utilisateur@ecole.cd',
+
               displayName:
                 user.displayName ||
                 user.email?.split('@')[0] ||
                 'Responsable Scolaire',
+
               role,
+
               active: true,
+
               createdAt:
                 new Date().toISOString(),
             };
 
             try {
+
               await setDoc(
                 userDocRef,
                 newProfile
               );
+
             } catch (error) {
+
               console.warn(
                 'Impossible de créer le profil utilisateur:',
                 error
@@ -339,7 +379,9 @@ export const AuthProvider: React.FC<{
             setProfile(newProfile);
             setActiveRole(role);
           }
+
         } catch (error) {
+
           console.error(
             'Erreur chargement profil utilisateur:',
             error
@@ -347,15 +389,21 @@ export const AuthProvider: React.FC<{
 
           const fallbackProfile: UserProfile = {
             id: user.uid,
+
             schoolId,
+
             email:
               user.email ||
               'admin@ecole.cd',
+
             displayName:
               user.displayName ||
               'Administrateur',
+
             role: 'admin',
+
             active: true,
+
             createdAt:
               new Date().toISOString(),
           };
@@ -369,9 +417,9 @@ export const AuthProvider: React.FC<{
           );
         }
 
-        /**
-         * L'utilisateur normal a terminé
-         * son initialisation.
+        /*
+         * Initialisation terminée
+         * pour un utilisateur normal.
          */
         setLoading(false);
       }
@@ -381,14 +429,17 @@ export const AuthProvider: React.FC<{
       isMounted = false;
       unsubscribe();
     };
+
   }, [schoolId]);
 
-  /**
-   * Connexion Google.
+  /*
+   * Connexion Google
    */
   const signInWithGoogle =
     async () => {
+
       try {
+
         const provider =
           new GoogleAuthProvider();
 
@@ -396,7 +447,9 @@ export const AuthProvider: React.FC<{
           auth,
           provider
         );
+
       } catch (error) {
+
         handleFirestoreError(
           error,
           OperationType.GET,
@@ -405,94 +458,111 @@ export const AuthProvider: React.FC<{
       }
     };
 
-  /**
-   * Connexion avec email + mot de passe.
+  /*
+   * Connexion Email + mot de passe
    */
-  const signInWithEmail = async (
-    email: string,
-    pass: string
-  ) => {
-    await signInWithEmailAndPassword(
-      auth,
-      email,
-      pass
-    );
-  };
+  const signInWithEmail =
+    async (
+      email: string,
+      pass: string
+    ) => {
 
-  /**
-   * Création d'un compte.
-   */
-  const signUpWithEmail = async (
-    email: string,
-    pass: string,
-    name: string,
-    role: UserRole = 'cashier'
-  ) => {
-    const cred =
-      await createUserWithEmailAndPassword(
+      await signInWithEmailAndPassword(
         auth,
         email,
         pass
       );
+    };
 
-    if (cred.user) {
-      const newProfile: UserProfile = {
-        id: cred.user.uid,
-        schoolId,
-        email,
-        displayName: name,
-        role:
-          cred.user.email ===
-          'controlpolytra@gmail.com'
-            ? 'admin'
-            : role,
-        active: true,
-        createdAt:
-          new Date().toISOString(),
-      };
+  /*
+   * Création de compte
+   */
+  const signUpWithEmail =
+    async (
+      email: string,
+      pass: string,
+      name: string,
+      role: UserRole = 'cashier'
+    ) => {
 
-      await setDoc(
-        doc(
-          db,
-          'schools',
+      const cred =
+        await createUserWithEmailAndPassword(
+          auth,
+          email,
+          pass
+        );
+
+      if (cred.user) {
+
+        const newProfile: UserProfile = {
+          id: cred.user.uid,
+
           schoolId,
-          'users',
-          cred.user.uid
-        ),
-        newProfile
-      );
 
-      setProfile(newProfile);
-      setActiveRole(
-        newProfile.role
-      );
-    }
-  };
+          email,
 
-  /**
-   * Déconnexion.
+          displayName: name,
+
+          role:
+            cred.user.email ===
+            'controlpolytra@gmail.com'
+              ? 'admin'
+              : role,
+
+          active: true,
+
+          createdAt:
+            new Date().toISOString(),
+        };
+
+        await setDoc(
+          doc(
+            db,
+            'schools',
+            schoolId,
+            'users',
+            cred.user.uid
+          ),
+          newProfile
+        );
+
+        setProfile(newProfile);
+
+        setActiveRole(
+          newProfile.role
+        );
+      }
+    };
+
+  /*
+   * Déconnexion
    */
-  const signOut = async () => {
-    await fbSignOut(auth);
-    setProfile(null);
-    setActiveRole('admin');
-  };
+  const signOut =
+    async () => {
 
-  /**
-   * Changement de rôle local.
+      await fbSignOut(auth);
+
+      setCurrentUser(null);
+      setProfile(null);
+      setActiveRole('admin');
+    };
+
+  /*
+   * Changement de rôle local
    */
-  const switchRole = (
-    newRole: UserRole
-  ) => {
-    setActiveRole(newRole);
+  const switchRole =
+    (newRole: UserRole) => {
 
-    if (profile) {
-      setProfile({
-        ...profile,
-        role: newRole,
-      });
-    }
-  };
+      setActiveRole(newRole);
+
+      if (profile) {
+
+        setProfile({
+          ...profile,
+          role: newRole,
+        });
+      }
+    };
 
   return (
     <AuthContext.Provider
@@ -516,6 +586,7 @@ export const AuthProvider: React.FC<{
 };
 
 export const useAuth = () => {
+
   const context =
     useContext(AuthContext);
 
