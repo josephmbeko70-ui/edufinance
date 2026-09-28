@@ -1,17 +1,15 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { initializeAuth, browserLocalPersistence } from 'firebase/auth';
 import { doc, getDocFromServer, getFirestore } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
-export const auth = getAuth(app);
-
-// Force la persistance locale afin que la session Firebase soit conservée
-// sur l'origine GitHub Pages et reste disponible entre /edufinance/ et
-// /edufinance-admin/ (même origine navigateur).
-void setPersistence(auth, browserLocalPersistence).catch((error) => {
-  console.error('[EduFinance][AUTH] Impossible d’activer la persistance locale:', error);
+// Les deux applications utilisent explicitement la même persistance locale.
+// Elles sont servies sous le même hôte GitHub Pages, donc la session Firebase
+// peut être relue en passant de /edufinance/ à /edufinance-admin/.
+export const auth = initializeAuth(app, {
+  persistence: browserLocalPersistence,
 });
 
 export enum OperationType {
