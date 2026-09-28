@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LandingPage } from './pages/LandingPage';
-import { LoginPage } from './pages/LoginPage';
 import { Navbar } from './components/common/Navbar';
 import { Sidebar, ActiveTab } from './components/common/Sidebar';
 import { DashboardPage } from './pages/DashboardPage';
@@ -41,17 +40,6 @@ import { Loader2 } from 'lucide-react';
 
 function MainApp() {
   const { currentUser, loading: authLoading, schoolId, role } = useAuth();
-  const [authView, setAuthView] = useState<'landing' | 'login'>(() => window.location.hash === '#login' ? 'login' : 'landing');
-
-  useEffect(() => {
-    const handleHash = () => setAuthView(window.location.hash === '#login' ? 'login' : 'landing');
-    window.addEventListener('hashchange', handleHash);
-    return () => window.removeEventListener('hashchange', handleHash);
-  }, []);
-
-  const openLogin = () => { window.location.hash = 'login'; setAuthView('login'); };
-  const openLanding = () => { window.location.hash = ''; setAuthView('landing'); };
-
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
@@ -157,7 +145,7 @@ function MainApp() {
   }
 
   if (!currentUser || currentUser.isAnonymous) {
-    return authView === 'login' ? <LoginPage onBack={openLanding} /> : <LandingPage onLogin={openLogin} />;
+    return <LandingPage />;
   }
 
   if (loading) {
