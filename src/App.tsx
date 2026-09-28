@@ -121,8 +121,10 @@ function MainApp() {
   }, [schoolId, seeding]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (currentUser && !currentUser.isAnonymous) {
+      fetchData();
+    }
+  }, [currentUser, fetchData]);
 
   // Handle Manual Seed Data Button
   const handleSeedData = async () => {
