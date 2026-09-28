@@ -7,7 +7,6 @@ import {
   signOut as fbSignOut,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signInAnonymously,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db, OperationType, handleFirestoreError } from '../firebase/config';
@@ -158,21 +157,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setActiveRole(fallbackProfile.role);
         }
       } else {
-        try {
-          await signInAnonymously(auth);
-        } catch {
-          const fallbackProfile: UserProfile = {
-            id: 'admin_local',
-            schoolId,
-            email: 'admin@ecole.cd',
-            displayName: 'Direction & Administration',
-            role: 'admin',
-            active: true,
-            createdAt: new Date().toISOString(),
-          };
-          setProfile(fallbackProfile);
-          setActiveRole('admin');
-        }
+        // No authenticated user: keep the public landing page visible.
+        // Do not create an anonymous Firebase session automatically.
+        setProfile(null);
+        setActiveRole('admin');
       }
       setLoading(false);
     });
