@@ -30,6 +30,29 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const DEFAULT_SCHOOL_ID = 'school_college_boboto';
+const ADMIN_CONSOLE_URL = 'https://josephmbeko70-ui.github.io/edufinance-admin/';
+
+type AdminRecord = {
+  role?: string;
+  active?: boolean;
+};
+
+const redirectSuperAdminIfAuthorized = async (user: FirebaseUser): Promise<boolean> => {
+  try {
+    const adminSnap = await getDoc(doc(db, 'admins', user.uid));
+    if (!adminSnap.exists()) return false;
+
+    const admin = adminSnap.data() as AdminRecord;
+    if (admin.active === true && admin.role === 'super_admin') {
+      window.location.assign(ADMIN_CONSOLE_URL);
+      return true;
+    }
+  } catch (error) {
+    console.error('Impossible de vérifier les droits administrateur :', error);
+  }
+
+  return false;
+};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
@@ -46,6 +69,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentUser(user);
 
       if (user) {
+        // Super-admins are routed to the independent admin console before
+        // any school profile is created or loaded.
+        const redirected = await redirectSuperAdminIfAuthorized(user);
+        if (redirected) return;
+
         try {
           const userDocRef = doc(db, 'schools', schoolId, 'users', user.uid);
           const snap = await getDoc(userDocRef);
@@ -78,7 +106,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setActiveRole(role);
           }
         } catch {
-          // Fallback user profile in case of permissions during initial bootstrap
           const fallbackProfile: UserProfile = {
             id: user.uid,
             schoolId,
@@ -92,7 +119,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setActiveRole(fallbackProfile.role);
         }
       } else {
-        // Auto-authenticate anonymously for seamless preview & permissions
         try {
           await signInAnonymously(auth);
         } catch {
