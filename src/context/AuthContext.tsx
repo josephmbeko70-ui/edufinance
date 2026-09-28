@@ -38,19 +38,48 @@ type AdminRecord = {
 };
 
 const redirectSuperAdminIfAuthorized = async (user: FirebaseUser): Promise<boolean> => {
+  console.groupCollapsed('[EduFinance][ADMIN DIAGNOSTIC]');
+  console.log('Firebase email:', user.email);
+  console.log('Firebase UID:', user.uid);
+  console.log('isAnonymous:', user.isAnonymous);
+  console.log('emailVerified:', user.emailVerified);
+  console.log('providerData:', user.providerData.map(provider => ({
+    providerId: provider.providerId,
+    email: provider.email,
+  })));
+  console.log('Vérification du document:', `admins/${user.uid}`);
+
   try {
     const adminSnap = await getDoc(doc(db, 'admins', user.uid));
-    if (!adminSnap.exists()) return false;
+
+    console.log('Document admins existe:', adminSnap.exists());
+
+    if (!adminSnap.exists()) {
+      console.warn('Aucun document admins pour cet UID.');
+      console.groupEnd();
+      return false;
+    }
 
     const admin = adminSnap.data() as AdminRecord;
+    console.log('Document admins:', admin);
+    console.log('role:', admin.role);
+    console.log('active:', admin.active);
+
     if (admin.active === true && admin.role === 'super_admin') {
+      console.log('RESULTAT: SUPER_ADMIN AUTORISÉ → redirection Admin.');
+      console.groupEnd();
       window.location.assign(ADMIN_CONSOLE_URL);
       return true;
     }
+
+    console.warn('Document trouvé, mais role/active ne correspondent pas à super_admin actif.');
   } catch (error) {
-    console.error('Impossible de vérifier les droits administrateur :', error);
+    console.error('ERREUR LECTURE admins:', error);
+    console.error('Code Firebase:', (error as { code?: string })?.code);
+    console.error('Message Firebase:', (error as { message?: string })?.message);
   }
 
+  console.groupEnd();
   return false;
 };
 
@@ -68,9 +97,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!isMounted) return;
       setCurrentUser(user);
 
+      console.log('[EduFinance][AUTH] onAuthStateChanged:', {
+        email: user?.email ?? null,
+        uid: user?.uid ?? null,
+        isAnonymous: user?.isAnonymous ?? null,
+        providerData: user?.providerData?.map(provider => ({
+          providerId: provider.providerId,
+          email: provider.email,
+        })) ?? [],
+      });
+
       if (user) {
-        // Super-admins are routed to the independent admin console before
-        // any school profile is created or loaded.
         const redirected = await redirectSuperAdminIfAuthorized(user);
         if (redirected) return;
 
