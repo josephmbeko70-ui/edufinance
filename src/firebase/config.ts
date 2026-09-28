@@ -1,11 +1,18 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { doc, getDocFromServer, getFirestore } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+
+// Force la persistance locale afin que la session Firebase soit conservée
+// sur l'origine GitHub Pages et reste disponible entre /edufinance/ et
+// /edufinance-admin/ (même origine navigateur).
+void setPersistence(auth, browserLocalPersistence).catch((error) => {
+  console.error('[EduFinance][AUTH] Impossible d’activer la persistance locale:', error);
+});
 
 export enum OperationType {
   CREATE = 'create',
