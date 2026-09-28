@@ -36,7 +36,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const DEFAULT_SCHOOL_ID = 'school_college_boboto';
 
 const ADMIN_CONSOLE_URL =
-  'https://josephmbeko70-ui.github.io/edufinance-admin/';
+  'https://josephmbeko70-ui.github.io/edufinance-admin/?v=20260928';
 
 type AdminRecord = {
   role?: string;
