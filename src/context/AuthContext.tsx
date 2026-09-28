@@ -171,7 +171,7 @@ const redirectSuperAdminIfAuthorized = async (
        * Aucun login n'est nécessaire sur Admin :
        * Firebase conserve la session.
        */
-      window.location.assign(
+      window.location.replace(
         ADMIN_CONSOLE_URL
       );
 
@@ -295,10 +295,10 @@ export const AuthProvider: React.FC<{
 
         if (redirected) {
           /*
-           * On ne charge surtout pas le profil
-           * scolaire après la redirection.
+           * On ne charge surtout pas le profil scolaire.
+           * On garde loading=true pendant la navigation afin
+           * d'éviter un rendu intermédiaire de l'espace client.
            */
-          setLoading(false);
           return;
         }
 
