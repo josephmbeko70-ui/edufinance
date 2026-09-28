@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { initializeAuth, browserLocalPersistence } from 'firebase/auth';
+import { initializeAuth, browserLocalPersistence, indexedDBLocalPersistence } from 'firebase/auth';
 import { doc, getDocFromServer, getFirestore } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -9,7 +9,7 @@ export const db = getFirestore(app);
 // Elles sont servies sous le même hôte GitHub Pages, donc la session Firebase
 // peut être relue en passant de /edufinance/ à /edufinance-admin/.
 export const auth = initializeAuth(app, {
-  persistence: browserLocalPersistence,
+  persistence: [indexedDBLocalPersistence, browserLocalPersistence],
 });
 
 export enum OperationType {
