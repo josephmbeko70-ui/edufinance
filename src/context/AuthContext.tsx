@@ -33,7 +33,7 @@ const ADMIN_CONSOLE_URL = 'https://josephmbeko70-ui.github.io/edufinance-admin/'
 
 type AdminRecord = {
   role?: string;
-  active?: boolean | string;
+  active?: boolean;
 };
 
 const redirectSuperAdminIfAuthorized = async (user: FirebaseUser): Promise<boolean> => {
@@ -65,9 +65,7 @@ const redirectSuperAdminIfAuthorized = async (user: FirebaseUser): Promise<boole
     console.log('ADMIN ROLE:', admin.role);
     console.log('ADMIN ACTIVE:', admin.active);
 
-    const isActive = admin.active === true || String(admin.active).toLowerCase() === 'true';
-
-    if (isActive && admin.role === 'super_admin') {
+    if (admin.active === true && admin.role === 'super_admin') {
       console.log('RESULTAT: SUPER_ADMIN AUTORISÉ → redirection Admin.');
       console.log('ADMIN RESULT: SUPER_ADMIN AUTHORIZED');
       console.log('===============================================');
@@ -75,11 +73,7 @@ const redirectSuperAdminIfAuthorized = async (user: FirebaseUser): Promise<boole
       return true;
     }
 
-    console.warn('Document trouvé, mais role/active ne correspondent pas à super_admin actif.', {
-      role: admin.role,
-      active: admin.active,
-      normalizedActive: String(admin.active).toLowerCase() === 'true',
-    });
+    console.warn('Document trouvé, mais role/active ne correspondent pas à super_admin actif.');
   } catch (error) {
     console.error('ERREUR LECTURE admins:', error);
     console.error('Code Firebase:', (error as { code?: string })?.code);
