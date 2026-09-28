@@ -266,16 +266,10 @@ export const AuthProvider: React.FC<{
         /**
          * Vérification du super_admin.
          */
-        const redirected =
-          await redirectSuperAdminIfAuthorized(
-            user
-          );
-
+        const redirected = await redirectSuperAdminIfAuthorized(user);
+        
         if (redirected) {
-          /**
-           * La redirection est déjà lancée.
-           * On ne charge surtout pas le profil scolaire.
-           */
+          setLoading(false);
           return;
         }
 
