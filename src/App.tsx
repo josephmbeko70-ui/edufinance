@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LandingPage } from './pages/LandingPage';
 import { Navbar } from './components/common/Navbar';
@@ -62,51 +62,46 @@ function MainApp() {
   const [studentForPayment, setStudentForPayment] = useState<Student | null>(null);
   const [activeReceipt, setActiveReceipt] = useState<Receipt | null>(null);
 
-  // Fetch all school data
-  const fetchData = useCallback(async () => {
-    try {
-      const data = await SchoolService.fetchAllSchoolData(schoolId);
-      setSchool(data.school);
-      setSections(data.sections || []);
-      setStudents(data.students);
-      setClasses(data.classes);
-      setOptions(data.options);
-      setFeeTypes(data.feeTypes);
-      setCharges(data.charges);
-      setPayments(data.payments);
-      setCashOperations(data.cashOperations);
-      setAuditLogs(data.auditLogs);
-      setUsers(data.users || []);
+  // Fetch all school data.
+  // Important: this is intentionally a stable callback. Re-fetching the entire
+  // school dataset on every state change can multiply Firestore reads quickly.
+  const fetchInFlightRef = useRef<Promise<void> | null>(null);
 
-      // Auto-seed if brand new
-      if (data.students.length === 0 && !seeding) {
-        setSeeding(true);
-        try {
-          await seedInitialDemoData(schoolId);
-          const freshData = await SchoolService.fetchAllSchoolData(schoolId);
-          setSchool(freshData.school);
-          setSections(freshData.sections || []);
-          setStudents(freshData.students);
-          setClasses(freshData.classes);
-          setOptions(freshData.options);
-          setFeeTypes(freshData.feeTypes);
-          setCharges(freshData.charges);
-          setPayments(freshData.payments);
-          setCashOperations(freshData.cashOperations);
-          setAuditLogs(freshData.auditLogs);
-          setUsers(freshData.users || []);
-        } catch (e) {
-          console.error('Seed error:', e);
-        } finally {
-          setSeeding(false);
-        }
-      }
-    } catch (err) {
-      console.error('Fetch error:', err);
-    } finally {
-      setLoading(false);
+  const fetchData = useCallback(async () => {
+    if (fetchInFlightRef.current) {
+      return fetchInFlightRef.current;
     }
-  }, [schoolId, seeding]);
+
+    const request = (async () => {
+      try {
+        const data = await SchoolService.fetchAllSchoolData(schoolId);
+        setSchool(data.school);
+        setSections(data.sections || []);
+        setStudents(data.students || []);
+        setClasses(data.classes || []);
+        setOptions(data.options || []);
+        setFeeTypes(data.feeTypes || []);
+        setCharges(data.charges || []);
+        setPayments(data.payments || []);
+        setCashOperations(data.cashOperations || []);
+        setAuditLogs(data.auditLogs || []);
+        setUsers(data.users || []);
+      } catch (err) {
+        console.error('Fetch error:', err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+
+    fetchInFlightRef.current = request;
+    try {
+      await request;
+    } finally {
+      if (fetchInFlightRef.current === request) {
+        fetchInFlightRef.current = null;
+      }
+    }
+  }, [schoolId]);
 
   useEffect(() => {
     if (currentUser && !currentUser.isAnonymous) {
@@ -114,7 +109,8 @@ function MainApp() {
     }
   }, [currentUser, fetchData]);
 
-  // Handle Manual Seed Data Button
+  // Demo data is opt-in. Never auto-seed an empty production school:
+  // doing so can trigger extra writes and repeated full-dataset reads.
   const handleSeedData = async () => {
     setSeeding(true);
     try {
