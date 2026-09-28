@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { LandingPage } from './pages/LandingPage';
+import { LoginPage } from './pages/LoginPage';
 import { Navbar } from './components/common/Navbar';
 import { Sidebar, ActiveTab } from './components/common/Sidebar';
 import { DashboardPage } from './pages/DashboardPage';
@@ -38,7 +40,17 @@ import {
 import { Loader2 } from 'lucide-react';
 
 function MainApp() {
-  const { schoolId, role } = useAuth();
+  const { currentUser, loading: authLoading, schoolId, role } = useAuth();
+  const [authView, setAuthView] = useState<'landing' | 'login'>(() => window.location.hash === '#login' ? 'login' : 'landing');
+
+  useEffect(() => {
+    const handleHash = () => setAuthView(window.location.hash === '#login' ? 'login' : 'landing');
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
+
+  const openLogin = () => { window.location.hash = 'login'; setAuthView('login'); };
+  const openLanding = () => { window.location.hash = ''; setAuthView('landing'); };
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [loading, setLoading] = useState(true);
@@ -137,6 +149,14 @@ function MainApp() {
       alert('Veuillez d\'abord inscrire ou sélectionner un élève.');
     }
   };
+
+  if (authLoading) {
+    return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-300"><Loader2 className="w-8 h-8 animate-spin text-indigo-400" /></div>;
+  }
+
+  if (!currentUser || currentUser.isAnonymous) {
+    return authView === 'login' ? <LoginPage onBack={openLanding} /> : <LandingPage onLogin={openLogin} />;
+  }
 
   if (loading) {
     return (
