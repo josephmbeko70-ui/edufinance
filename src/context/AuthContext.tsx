@@ -241,6 +241,12 @@ export const AuthProvider: React.FC<{
   const [loading, setLoading] =
     useState(true);
 
+  // Une session restaurée au chargement ne doit jamais déclencher
+  // automatiquement une navigation. La navigation de rôle ne se fait
+  // qu'après une connexion initiée depuis la landing page.
+  const initialAuthResolvedRef = React.useRef(false);
+  const routeAfterLoginRef = React.useRef(false);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -269,7 +275,21 @@ export const AuthProvider: React.FC<{
         );
 
         /*
-         * Aucun utilisateur connecté.
+         * Premier état Firebase au chargement.
+         * La landing page reste toujours le point d'entrée.
+         * Une session déjà restaurée ne déclenche donc aucune redirection.
+         */
+        if (!initialAuthResolvedRef.current) {
+          initialAuthResolvedRef.current = true;
+          setCurrentUser(null);
+          setProfile(null);
+          setActiveRole('admin');
+          setLoading(false);
+          return;
+        }
+
+        /*
+         * Aucun utilisateur connecté après une action de session.
          */
         if (!user) {
           setCurrentUser(null);
@@ -279,19 +299,18 @@ export const AuthProvider: React.FC<{
           return;
         }
 
-        /*
-         * Utilisateur connecté.
-         */
         setCurrentUser(user);
 
         /*
-         * Vérification SUPER ADMIN.
-         *
-         * Si autorisé :
-         * → redirection immédiate vers Admin.
+         * La redirection de rôle n'est autorisée que lorsqu'une connexion
+         * vient d'être explicitement lancée depuis la landing page.
          */
-        const redirected =
-          await redirectSuperAdminIfAuthorized(user);
+        const shouldRoute = routeAfterLoginRef.current;
+        routeAfterLoginRef.current = false;
+
+        const redirected = shouldRoute
+          ? await redirectSuperAdminIfAuthorized(user)
+          : false;
 
         if (redirected) {
           /*
@@ -439,6 +458,7 @@ export const AuthProvider: React.FC<{
     async () => {
 
       try {
+        routeAfterLoginRef.current = true;
 
         const provider =
           new GoogleAuthProvider();
@@ -467,6 +487,8 @@ export const AuthProvider: React.FC<{
       pass: string
     ) => {
 
+      routeAfterLoginRef.current = true;
+
       await signInWithEmailAndPassword(
         auth,
         email,
@@ -484,6 +506,8 @@ export const AuthProvider: React.FC<{
       name: string,
       role: UserRole = 'cashier'
     ) => {
+
+      routeAfterLoginRef.current = false;
 
       const cred =
         await createUserWithEmailAndPassword(
