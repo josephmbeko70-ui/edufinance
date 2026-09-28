@@ -11,7 +11,12 @@ import {
   browserLocalPersistence,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db, OperationType, handleFirestoreError } from '../firebase/config';
+import {
+  auth,
+  db,
+  OperationType,
+  handleFirestoreError,
+} from '../firebase/config';
 import { UserProfile, UserRole } from '../types';
 
 interface AuthContextType {
@@ -22,19 +27,36 @@ interface AuthContextType {
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (e: string, p: string) => Promise<void>;
-  signUpWithEmail: (e: string, p: string, name: string, role?: UserRole) => Promise<void>;
+  signUpWithEmail: (
+    e: string,
+    p: string,
+    name: string,
+    role?: UserRole
+  ) => Promise<void>;
   signOut: () => Promise<void>;
   switchRole: (newRole: UserRole) => void;
   setSchoolId: (id: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
 export const DEFAULT_SCHOOL_ID = 'school_college_boboto';
-const ADMIN_CONSOLE_URL = 'https://josephmbeko70-ui.github.io/edufinance-admin/?v=20260928';
 
-type AdminRecord = { role?: string; active?: boolean };
+const ADMIN_CONSOLE_URL =
+  'https://josephmbeko70-ui.github.io/edufinance-admin/?v=20260928';
 
-const redirectSuperAdminIfAuthorized = async (user: FirebaseUser): Promise<boolean> => {
+type AdminRecord = {
+  role?: string;
+  active?: boolean;
+};
+
+/**
+ * Vérifie si l'utilisateur est un super administrateur.
+ * Si oui, redirige immédiatement vers l'espace Admin.
+ */
+const redirectSuperAdminIfAuthorized = async (
+  user: FirebaseUser
+): Promise<boolean> => {
   console.log('========== EDUFINANCE ADMIN DIAGNOSTIC ==========');
   console.log('Firebase email:', user.email);
   console.log('Firebase UID:', user.uid);
@@ -43,10 +65,16 @@ const redirectSuperAdminIfAuthorized = async (user: FirebaseUser): Promise<boole
 
   try {
     const adminSnap = await getDoc(doc(db, 'admins', user.uid));
+
     console.log('Document admins existe:', adminSnap.exists());
-    if (!adminSnap.exists()) return false;
+
+    if (!adminSnap.exists()) {
+      console.log('Aucun document admin pour cet utilisateur.');
+      return false;
+    }
 
     const admin = adminSnap.data() as AdminRecord;
+
     const isActiveBoolean = typeof admin.active === 'boolean';
     const isActive = admin.active === true;
     const isSuperAdmin = admin.role === 'super_admin';
@@ -59,47 +87,85 @@ const redirectSuperAdminIfAuthorized = async (user: FirebaseUser): Promise<boole
     console.log('ROLE === SUPER_ADMIN:', isSuperAdmin);
 
     if (isActiveBoolean && isActive && isSuperAdmin) {
-      console.log('RESULTAT: SUPER_ADMIN AUTORISÉ → redirection Admin.');
+      console.log(
+        'RESULTAT: SUPER_ADMIN AUTORISÉ → redirection Admin.'
+      );
+
       window.location.replace(ADMIN_CONSOLE_URL);
+
       return true;
     }
 
     console.warn('ACCÈS ADMIN REFUSÉ.');
+
     return false;
   } catch (error) {
     console.error('ERREUR LECTURE admins:', error);
+
     return false;
   }
 };
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [schoolId, setSchoolId] = useState<string>(DEFAULT_SCHOOL_ID);
-  const [activeRole, setActiveRole] = useState<UserRole>('admin');
+export const AuthProvider: React.FC<{
+  children: React.ReactNode;
+}> = ({ children }) => {
+  const [currentUser, setCurrentUser] =
+    useState<FirebaseUser | null>(null);
+
+  const [profile, setProfile] =
+    useState<UserProfile | null>(null);
+
+  const [schoolId, setSchoolId] =
+    useState<string>(DEFAULT_SCHOOL_ID);
+
+  const [activeRole, setActiveRole] =
+    useState<UserRole>('admin');
+
   const [loading, setLoading] = useState(true);
 
-  // Distinguishes a restored Firebase session from a login/signup action
-  // that the user has just initiated from the Landing page.
+  /**
+   * Permet de distinguer :
+   *
+   * 1. une session Firebase restaurée automatiquement
+   * 2. une connexion réellement déclenchée par l'utilisateur
+   */
   const initialAuthResolvedRef = React.useRef(false);
-  const authActionRef = React.useRef<'login' | 'signup' | null>(null);
 
+  const authActionRef =
+    React.useRef<'login' | 'signup' | null>(null);
+
+  /**
+   * Charge ou crée le profil utilisateur.
+   */
   const loadUserProfile = async (user: FirebaseUser) => {
     try {
-      const userDocRef = doc(db, 'schools', schoolId, 'users', user.uid);
+      const userDocRef = doc(
+        db,
+        'schools',
+        schoolId,
+        'users',
+        user.uid
+      );
+
       const snap = await getDoc(userDocRef);
+
       const role: UserRole = 'admin';
 
       if (snap.exists()) {
         const data = snap.data() as UserProfile;
+
         setProfile(data);
         setActiveRole(data.role || role);
       } else {
         const newProfile: UserProfile = {
           id: user.uid,
           schoolId,
-          email: user.email || 'utilisateur@ecole.cd',
-          displayName: user.displayName || user.email?.split('@')[0] || 'Responsable Scolaire',
+          email:
+            user.email || 'utilisateur@ecole.cd',
+          displayName:
+            user.displayName ||
+            user.email?.split('@')[0] ||
+            'Responsable Scolaire',
           role,
           active: true,
           createdAt: new Date().toISOString(),
@@ -108,20 +174,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           await setDoc(userDocRef, newProfile);
         } catch (error) {
-          console.warn('Impossible de créer le profil utilisateur:', error);
+          console.warn(
+            'Impossible de créer le profil utilisateur:',
+            error
+          );
         }
 
         setProfile(newProfile);
         setActiveRole(role);
       }
     } catch (error) {
-      console.error('Erreur chargement profil utilisateur:', error);
+      console.error(
+        'Erreur chargement profil utilisateur:',
+        error
+      );
 
       const fallbackProfile: UserProfile = {
         id: user.uid,
         schoolId,
-        email: user.email || 'admin@ecole.cd',
-        displayName: user.displayName || 'Administrateur',
+        email:
+          user.email || 'admin@ecole.cd',
+        displayName:
+          user.displayName || 'Administrateur',
         role: 'admin',
         active: true,
         createdAt: new Date().toISOString(),
@@ -132,6 +206,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  /**
+   * Traite une authentification explicitement déclenchée.
+   *
+   * routeAdmin = true :
+   * vérifie immédiatement si l'utilisateur est super_admin.
+   */
   const handleExplicitAuthUser = async (
     user: FirebaseUser,
     routeAdmin: boolean
@@ -140,69 +220,135 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCurrentUser(user);
 
     if (routeAdmin) {
-      const redirected = await redirectSuperAdminIfAuthorized(user);
-      if (redirected) return;
+      const redirected =
+        await redirectSuperAdminIfAuthorized(user);
+
+      if (redirected) {
+        return;
+      }
     }
 
     await loadUserProfile(user);
+
     setLoading(false);
   };
 
   useEffect(() => {
     let isMounted = true;
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!isMounted) return;
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      async (user) => {
+        if (!isMounted) return;
 
-      console.log('[EduFinance][AUTH] onAuthStateChanged:', {
-        email: user?.email ?? null,
-        uid: user?.uid ?? null,
-        isAnonymous: user?.isAnonymous ?? null,
-        providerData:
-          user?.providerData?.map((provider) => ({
-            providerId: provider.providerId,
-            email: provider.email,
-          })) ?? [],
-      });
+        console.log(
+          '[EduFinance][AUTH] onAuthStateChanged:',
+          {
+            email: user?.email ?? null,
+            uid: user?.uid ?? null,
+            isAnonymous: user?.isAnonymous ?? null,
+            providerData:
+              user?.providerData?.map(
+                (provider) => ({
+                  providerId: provider.providerId,
+                  email: provider.email,
+                })
+              ) ?? [],
+          }
+        );
 
-      // Firebase always emits an initial state. If this is a restored
-      // session, keep the Landing page as the entry point.
-      if (!initialAuthResolvedRef.current) {
-        initialAuthResolvedRef.current = true;
+        /**
+         * PREMIER ÉVÉNEMENT FIREBASE
+         *
+         * Il peut correspondre à une ancienne session
+         * restaurée automatiquement.
+         */
+        if (!initialAuthResolvedRef.current) {
+          initialAuthResolvedRef.current = true;
 
-        const action = authActionRef.current;
+          const action = authActionRef.current;
 
-        if (!action) {
+          /**
+           * Aucune connexion explicitement déclenchée :
+           *
+           * On reste sur la Landing Page.
+           *
+           * Cela évite qu'une ancienne session restaurée
+           * envoie automatiquement l'utilisateur vers Admin.
+           */
+          if (!action) {
+            setCurrentUser(null);
+            setProfile(null);
+            setActiveRole('admin');
+            setLoading(false);
+
+            return;
+          }
+
+          /**
+           * Une connexion était déjà en cours.
+           */
+          if (user) {
+            authActionRef.current = null;
+
+            await handleExplicitAuthUser(
+              user,
+              action === 'login'
+            );
+
+            return;
+          }
+        }
+
+        /**
+         * CORRECTION PRINCIPALE
+         *
+         * Si cet événement Firebase provient d'une connexion
+         * explicitement déclenchée par l'utilisateur,
+         * il faut obligatoirement traiter cette connexion
+         * comme une nouvelle authentification.
+         *
+         * AVANT :
+         * l'événement passait directement à loadUserProfile()
+         * et pouvait laisser l'utilisateur sur la Landing Page.
+         *
+         * MAINTENANT :
+         * la connexion est vérifiée immédiatement et un
+         * super_admin est envoyé vers Admin.
+         */
+        if (user && authActionRef.current === 'login') {
+          authActionRef.current = null;
+
+          await handleExplicitAuthUser(user, true);
+
+          return;
+        }
+
+        /**
+         * Si aucun utilisateur n'est connecté.
+         */
+        if (!user) {
           setCurrentUser(null);
           setProfile(null);
           setActiveRole('admin');
           setLoading(false);
+
           return;
         }
 
-        // A login/signup was already initiated before Firebase emitted
-        // its first state. Do not erase the authenticated user.
-        if (user) {
-          authActionRef.current = null;
-          await handleExplicitAuthUser(user, action === 'login');
-          return;
-        }
-      }
+        /**
+         * Session Firebase déjà existante/restaurée.
+         *
+         * Elle peut mettre à jour l'interface locale,
+         * mais ne déclenche PAS automatiquement Admin.
+         */
+        setCurrentUser(user);
 
-      if (!user) {
-        setCurrentUser(null);
-        setProfile(null);
-        setActiveRole('admin');
+        await loadUserProfile(user);
+
         setLoading(false);
-        return;
       }
-
-      // Subsequent auth events are allowed to update the local UI,
-      // but they never trigger an automatic Admin redirect.
-      setCurrentUser(user);
-      await loadUserProfile(user);
-      setLoading(false);
-    });
+    );
 
     return () => {
       isMounted = false;
@@ -210,45 +356,91 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [schoolId]);
 
+  /**
+   * CONNEXION GOOGLE
+   */
   const signInWithGoogle = async () => {
     authActionRef.current = 'login';
 
     try {
-      await setPersistence(auth, browserLocalPersistence);
-      const provider = new GoogleAuthProvider();
-      const cred = await signInWithPopup(auth, provider);
+      await setPersistence(
+        auth,
+        browserLocalPersistence
+      );
 
-      // If onAuthStateChanged already consumed the login, it cleared the
-      // action ref. Otherwise handle the returned credential here.
+      const provider = new GoogleAuthProvider();
+
+      const cred = await signInWithPopup(
+        auth,
+        provider
+      );
+
+      /**
+       * Si onAuthStateChanged n'a pas encore consommé
+       * l'action de connexion, on traite directement
+       * l'utilisateur retourné par Firebase.
+       */
       if (authActionRef.current === 'login') {
         authActionRef.current = null;
-        await handleExplicitAuthUser(cred.user, true);
+
+        await handleExplicitAuthUser(
+          cred.user,
+          true
+        );
       }
     } catch (error) {
       authActionRef.current = null;
       setLoading(false);
-      handleFirestoreError(error, OperationType.GET, 'auth/google');
+
+      handleFirestoreError(
+        error,
+        OperationType.GET,
+        'auth/google'
+      );
     }
   };
 
-  const signInWithEmail = async (email: string, pass: string) => {
+  /**
+   * CONNEXION EMAIL / MOT DE PASSE
+   */
+  const signInWithEmail = async (
+    email: string,
+    pass: string
+  ) => {
     authActionRef.current = 'login';
 
     try {
-      await setPersistence(auth, browserLocalPersistence);
-      const cred = await signInWithEmailAndPassword(auth, email, pass);
+      await setPersistence(
+        auth,
+        browserLocalPersistence
+      );
+
+      const cred =
+        await signInWithEmailAndPassword(
+          auth,
+          email,
+          pass
+        );
 
       if (authActionRef.current === 'login') {
         authActionRef.current = null;
-        await handleExplicitAuthUser(cred.user, true);
+
+        await handleExplicitAuthUser(
+          cred.user,
+          true
+        );
       }
     } catch (error) {
       authActionRef.current = null;
       setLoading(false);
+
       throw error;
     }
   };
 
+  /**
+   * INSCRIPTION EMAIL / MOT DE PASSE
+   */
   const signUpWithEmail = async (
     email: string,
     pass: string,
@@ -258,7 +450,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     authActionRef.current = 'signup';
 
     try {
-      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      await setPersistence(
+        auth,
+        browserLocalPersistence
+      );
+
+      const cred =
+        await createUserWithEmailAndPassword(
+          auth,
+          email,
+          pass
+        );
 
       if (authActionRef.current === 'signup') {
         authActionRef.current = null;
@@ -268,13 +470,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           schoolId,
           email,
           displayName: name,
-          role: cred.user.email === 'controlpolytra@gmail.com' ? 'admin' : role,
+          role:
+            cred.user.email ===
+            'controlpolytra@gmail.com'
+              ? 'admin'
+              : role,
           active: true,
-          createdAt: new Date().toISOString(),
+          createdAt:
+            new Date().toISOString(),
         };
 
         await setDoc(
-          doc(db, 'schools', schoolId, 'users', cred.user.uid),
+          doc(
+            db,
+            'schools',
+            schoolId,
+            'users',
+            cred.user.uid
+          ),
           newProfile
         );
 
@@ -286,23 +499,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       authActionRef.current = null;
       setLoading(false);
+
       throw error;
     }
   };
 
+  /**
+   * DÉCONNEXION
+   */
   const signOut = async () => {
     await fbSignOut(auth);
+
     authActionRef.current = null;
+
     setCurrentUser(null);
     setProfile(null);
     setActiveRole('admin');
     setLoading(false);
   };
 
+  /**
+   * CHANGEMENT DE RÔLE
+   */
   const switchRole = (newRole: UserRole) => {
     setActiveRole(newRole);
+
     if (profile) {
-      setProfile({ ...profile, role: newRole });
+      setProfile({
+        ...profile,
+        role: newRole,
+      });
     }
   };
 
@@ -329,8 +555,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
+
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error(
+      'useAuth must be used within an AuthProvider'
+    );
   }
+
   return context;
 };
