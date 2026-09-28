@@ -62,9 +62,9 @@ function MainApp() {
   const [studentForPayment, setStudentForPayment] = useState<Student | null>(null);
   const [activeReceipt, setActiveReceipt] = useState<Receipt | null>(null);
 
-  // Fetch all school data.
-  // Important: this is intentionally a stable callback. Re-fetching the entire
-  // school dataset on every state change can multiply Firestore reads quickly.
+  // Load only the datasets needed by the current workspace.
+  // This avoids downloading the entire school database every time the app opens
+  // or a page requests a refresh.
   const fetchInFlightRef = useRef<Promise<void> | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -74,18 +74,149 @@ function MainApp() {
 
     const request = (async () => {
       try {
-        const data = await SchoolService.fetchAllSchoolData(schoolId);
-        setSchool(data.school);
-        setSections(data.sections || []);
-        setStudents(data.students || []);
-        setClasses(data.classes || []);
-        setOptions(data.options || []);
-        setFeeTypes(data.feeTypes || []);
-        setCharges(data.charges || []);
-        setPayments(data.payments || []);
-        setCashOperations(data.cashOperations || []);
-        setAuditLogs(data.auditLogs || []);
-        setUsers(data.users || []);
+        // School settings are lightweight and needed by every workspace.
+        const schoolData = await SchoolService.getSchool(schoolId);
+        setSchool(schoolData);
+
+        switch (activeTab) {
+          case 'dashboard': {
+            const [studentsData, chargesData, paymentsData] = await Promise.all([
+              SchoolService.getStudents(schoolId),
+              SchoolService.getCharges(schoolId),
+              SchoolService.getPayments(schoolId),
+            ]);
+            setStudents(studentsData || []);
+            setCharges(chargesData || []);
+            setPayments(paymentsData || []);
+            break;
+          }
+          case 'students': {
+            const [studentsData, classesData, optionsData, chargesData, paymentsData] = await Promise.all([
+              SchoolService.getStudents(schoolId),
+              SchoolService.getClasses(schoolId),
+              SchoolService.getOptions(schoolId),
+              SchoolService.getCharges(schoolId),
+              SchoolService.getPayments(schoolId),
+            ]);
+            setStudents(studentsData || []);
+            setClasses(classesData || []);
+            setOptions(optionsData || []);
+            setCharges(chargesData || []);
+            setPayments(paymentsData || []);
+            break;
+          }
+          case 'classes': {
+            const [classesData, sectionsData, optionsData, studentsData] = await Promise.all([
+              SchoolService.getClasses(schoolId),
+              SchoolService.getSections(schoolId),
+              SchoolService.getOptions(schoolId),
+              SchoolService.getStudents(schoolId),
+            ]);
+            setClasses(classesData || []);
+            setSections(sectionsData || []);
+            setOptions(optionsData || []);
+            setStudents(studentsData || []);
+            break;
+          }
+          case 'sections': {
+            const [sectionsData, classesData, studentsData] = await Promise.all([
+              SchoolService.getSections(schoolId),
+              SchoolService.getClasses(schoolId),
+              SchoolService.getStudents(schoolId),
+            ]);
+            setSections(sectionsData || []);
+            setClasses(classesData || []);
+            setStudents(studentsData || []);
+            break;
+          }
+          case 'options': {
+            const [optionsData, classesData, studentsData] = await Promise.all([
+              SchoolService.getOptions(schoolId),
+              SchoolService.getClasses(schoolId),
+              SchoolService.getStudents(schoolId),
+            ]);
+            setOptions(optionsData || []);
+            setClasses(classesData || []);
+            setStudents(studentsData || []);
+            break;
+          }
+          case 'fees': {
+            const [feeTypesData, classesData] = await Promise.all([
+              SchoolService.getFeeTypes(schoolId),
+              SchoolService.getClasses(schoolId),
+            ]);
+            setFeeTypes(feeTypesData || []);
+            setClasses(classesData || []);
+            break;
+          }
+          case 'billing': {
+            const [chargesData, classesData, feeTypesData, studentsData] = await Promise.all([
+              SchoolService.getCharges(schoolId),
+              SchoolService.getClasses(schoolId),
+              SchoolService.getFeeTypes(schoolId),
+              SchoolService.getStudents(schoolId),
+            ]);
+            setCharges(chargesData || []);
+            setClasses(classesData || []);
+            setFeeTypes(feeTypesData || []);
+            setStudents(studentsData || []);
+            break;
+          }
+          case 'payments': {
+            const [paymentsData, studentsData, chargesData] = await Promise.all([
+              SchoolService.getPayments(schoolId),
+              SchoolService.getStudents(schoolId),
+              SchoolService.getCharges(schoolId),
+            ]);
+            setPayments(paymentsData || []);
+            setStudents(studentsData || []);
+            setCharges(chargesData || []);
+            break;
+          }
+          case 'cash': {
+            const cashData = await SchoolService.getCashOperations(schoolId);
+            setCashOperations(cashData || []);
+            break;
+          }
+          case 'reports': {
+            const [studentsData, chargesData, paymentsData, classesData, feeTypesData] = await Promise.all([
+              SchoolService.getStudents(schoolId),
+              SchoolService.getCharges(schoolId),
+              SchoolService.getPayments(schoolId),
+              SchoolService.getClasses(schoolId),
+              SchoolService.getFeeTypes(schoolId),
+            ]);
+            setStudents(studentsData || []);
+            setCharges(chargesData || []);
+            setPayments(paymentsData || []);
+            setClasses(classesData || []);
+            setFeeTypes(feeTypesData || []);
+            break;
+          }
+          case 'audit': {
+            const auditData = await SchoolService.getAuditLogs(schoolId);
+            setAuditLogs(auditData || []);
+            break;
+          }
+          case 'users': {
+            const usersData = await SchoolService.getUsers(schoolId);
+            setUsers(usersData || []);
+            break;
+          }
+          case 'settings':
+            break;
+          case 'tests': {
+            const [studentsData, chargesData, paymentsData] = await Promise.all([
+              SchoolService.getStudents(schoolId),
+              SchoolService.getCharges(schoolId),
+              SchoolService.getPayments(schoolId),
+            ]);
+            setStudents(studentsData || []);
+            setCharges(chargesData || []);
+            setPayments(paymentsData || []);
+            break;
+          }
+        }
       } catch (err) {
         console.error('Fetch error:', err);
       } finally {
@@ -101,10 +232,11 @@ function MainApp() {
         fetchInFlightRef.current = null;
       }
     }
-  }, [schoolId]);
+  }, [schoolId, activeTab]);
 
   useEffect(() => {
     if (currentUser && !currentUser.isAnonymous) {
+      setLoading(true);
       fetchData();
     }
   }, [currentUser, fetchData]);
