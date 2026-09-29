@@ -1201,6 +1201,17 @@ export class SchoolService {
 
       try {
         await setDoc(doc(db, 'schools', schoolId, 'users', authUid), userItem);
+
+        // Chaque compte créé par un school_admin reçoit sa liaison école.
+        // Cette liaison permet au prochain login de déterminer automatiquement
+        // l'espace logique de l'école sans dépendre d'un sous-domaine DNS.
+        if (isNew) {
+          await setDoc(doc(db, 'userSchoolLinks', authUid), {
+            schoolId,
+            status: 'active',
+            createdAt: new Date().toISOString(),
+          });
+        }
       } catch (error) {
         if (isNew && secondaryApp) {
           try {
