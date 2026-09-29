@@ -200,28 +200,6 @@ export const UsersPage: React.FC<UsersPageProps> = ({
     }
   };
 
-  const handleQuickRoleChange = async (targetUser: UserProfile, newRole: UserRole) => {
-    if (targetUser.role === newRole) return;
-
-    try {
-      await SchoolService.updateUserRole(
-        schoolId,
-        targetUser.id,
-        newRole,
-        currentUser?.uid || 'admin',
-        currentUser?.email || profile?.email || 'admin@ecole.cd'
-      );
-      await onRefreshData();
-      setActionSuccess(
-        `Le rôle de "${targetUser.displayName}" a été mis à jour vers "${getRoleLabel(newRole)}".`
-      );
-    } catch (err: unknown) {
-      alert(
-        err instanceof Error ? err.message : 'Erreur lors du changement de rôle'
-      );
-    }
-  };
-
   const handleDeleteUser = async () => {
     if (!userToDelete) return;
 
@@ -438,26 +416,12 @@ export const UsersPage: React.FC<UsersPageProps> = ({
                       </td>
 
                       <td className="py-3.5 px-4">
-                        {role === 'admin' ? (
-                          <div className="flex items-center gap-2">
-                            <select
-                              value={u.role}
-                              onChange={(e) =>
-                                handleQuickRoleChange(u, e.target.value as UserRole)
-                              }
-                              className="px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-600"
-                            >
-                              <option value="admin">Administrateur Général</option>
-                              <option value="director">Directeur des Études</option>
-                              <option value="cashier">Caissier Principal</option>
-                              <option value="secretary">Secrétaire Administratif</option>
-                            </select>
-                          </div>
-                        ) : (
-                          <span className="font-semibold text-slate-800">
-                            {getRoleLabel(u.role)}
+                        <span className="inline-flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-200 px-2.5 py-1.5 font-semibold text-slate-800">
+                          {getRoleLabel(u.role)}
+                          <span className="text-[10px] font-medium text-slate-400">
+                            Défini par l’administration
                           </span>
-                        )}
+                        </span>
                       </td>
 
                       <td className="py-3.5 px-4 text-center">
@@ -657,18 +621,27 @@ export const UsersPage: React.FC<UsersPageProps> = ({
                 <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
                   Rôle & Niveau de Privilège *
                 </label>
-                <select
-                  value={formData.role}
-                  onChange={(e) =>
-                    setFormData({ ...formData, role: e.target.value as UserRole })
-                  }
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-600"
-                >
-                  <option value="admin">Administrateur Général (Accès total)</option>
-                  <option value="director">Directeur des Études (Pédagogie & Direction)</option>
-                  <option value="cashier">Caissier Principal (Caisse & Encaissements)</option>
-                  <option value="secretary">Secrétaire Administratif (Inscriptions & Dossiers)</option>
-                </select>
+                {editingUser ? (
+                  <div className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800">
+                    {getRoleLabel(formData.role)}
+                    <p className="mt-1 text-[10px] font-medium text-slate-400">
+                      Rôle défini par le school_admin et chargé depuis Firestore.
+                    </p>
+                  </div>
+                ) : (
+                  <select
+                    value={formData.role}
+                    onChange={(e) =>
+                      setFormData({ ...formData, role: e.target.value as UserRole })
+                    }
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-600"
+                  >
+                    <option value="admin">Administrateur Général (Accès total)</option>
+                    <option value="director">Directeur des Études (Pédagogie & Direction)</option>
+                    <option value="cashier">Caissier Principal (Caisse & Encaissements)</option>
+                    <option value="secretary">Secrétaire Administratif (Inscriptions & Dossiers)</option>
+                  </select>
+                )}
               </div>
 
               {/* Role explanation */}
