@@ -78,6 +78,10 @@ function MainApp() {
         const schoolData = await SchoolService.getSchool(schoolId);
         setSchool(schoolData);
 
+        if (!schoolData || schoolData.status !== 'active') {
+          return;
+        }
+
         switch (activeTab) {
           case 'dashboard': {
             const [studentsData, chargesData, paymentsData] = await Promise.all([
@@ -283,6 +287,24 @@ function MainApp() {
         <p className="text-sm font-medium text-slate-300">
           Chargement de l'espace financier EduFinance Pro...
         </p>
+      </div>
+    );
+  }
+
+  if (school && school.status !== 'active') {
+    const pending = school.status === 'pending';
+    return (
+      <div className="min-h-screen bg-[#07101f] text-white overflow-x-hidden">
+        <div className="min-h-screen flex items-center justify-center px-5 py-12 relative overflow-hidden">
+          <div className="absolute -top-40 -right-40 w-[520px] h-[520px] rounded-full bg-indigo-500/20 blur-3xl" />
+          <div className="relative w-full max-w-xl rounded-3xl border border-white/10 bg-white/[.05] p-8 md:p-10 shadow-2xl">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-500/15 border border-indigo-400/20 flex items-center justify-center text-indigo-300"><Loader2 className="w-7 h-7" /></div>
+            <p className="mt-6 text-xs uppercase tracking-[0.18em] text-indigo-300">EduFinance · Votre établissement</p>
+            <h1 className="mt-3 text-3xl font-bold">{pending ? 'Demande en cours de validation' : 'Demande non approuvée'}</h1>
+            <p className="mt-4 text-slate-400 leading-7">{pending ? 'Votre établissement a bien été enregistré. L’équipe EduFinance doit encore valider votre demande avant l’ouverture de l’espace financier.' : 'Cet établissement n’est pas actif. L’espace financier reste fermé tant que la demande n’a pas été approuvée.'}</p>
+            <div className="mt-7 rounded-2xl border border-white/10 bg-black/10 p-4"><p className="text-sm font-semibold">{school.name}</p><p className="mt-1 text-xs text-slate-500">Statut : {pending ? 'En attente de validation' : 'Rejeté'}</p></div>
+          </div>
+        </div>
       </div>
     );
   }
