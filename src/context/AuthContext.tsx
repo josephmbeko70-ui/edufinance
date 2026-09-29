@@ -165,7 +165,7 @@ export const AuthProvider: React.FC<{
       } else {
         const newProfile: UserProfile = {
           id: user.uid,
-          schoolId,
+          resolvedSchoolId,
           email:
             user.email || 'utilisateur@ecole.cd',
           displayName:
@@ -451,7 +451,8 @@ export const AuthProvider: React.FC<{
     email: string,
     pass: string,
     name: string,
-    role: UserRole = 'cashier'
+    role: UserRole = 'cashier',
+    schoolName = name
   ) => {
     authActionRef.current = 'signup';
 
@@ -475,7 +476,7 @@ export const AuthProvider: React.FC<{
         const now = new Date().toISOString();
         const newSchool = {
           id: newSchoolId,
-          name,
+          name: schoolName,
           code: newSchoolId.slice(-8).toUpperCase(),
           address: '',
           phone: '',
