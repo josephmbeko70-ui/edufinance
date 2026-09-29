@@ -457,72 +457,71 @@ export const AuthProvider: React.FC<{
     authActionRef.current = 'signup';
 
     try {
-      await setPersistence(
-        auth,
-        browserLocalPersistence
-      );
+      await setPersistence(auth, browserLocalPersistence);
 
-      const cred =
-        await createUserWithEmailAndPassword(
-          auth,
-          email,
-          pass
-        );
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
 
-      // La création de l'école doit être liée directement au résultat
-      // de createUserWithEmailAndPassword. Le listener Firebase peut consommer
-      // authActionRef avant le retour de cette Promise.
       authActionRef.current = null;
 
       const newSchoolId = `school_${Date.now()}_${cred.user.uid.slice(0, 8)}`;
-        const now = new Date().toISOString();
-        const newSchool = {
-          id: newSchoolId,
-          name: schoolName,
-          code: newSchoolId.slice(-8).toUpperCase(),
-          address: '',
-          phone: '',
-          email,
-          currency: 'CDF' as const,
-          schoolYear: '2026-2027',
-          matriculePrefix: '2026',
-          city: '',
-          province: '',
-          country: 'République Démocratique du Congo',
-          status: 'pending',
-          ownerId: cred.user.uid,
-          ownerEmail: email,
-          ownerName: name,
-          createdAt: now,
-          updatedAt: now,
-        };
-        const newProfile: UserProfile = {
-          id: cred.user.uid,
-          schoolId: newSchoolId,
-          email,
-          displayName: name,
-          role: 'admin',
-          active: true,
-          createdAt: now,
-        };
-        await setDoc(doc(db, 'schools', newSchoolId), newSchool);
-        await setDoc(doc(db, 'schools', newSchoolId, 'users', cred.user.uid), newProfile);
-        await setDoc(doc(db, 'userSchoolLinks', cred.user.uid), { schoolId: newSchoolId, status: 'pending', createdAt: now });
-        setSchoolId(newSchoolId);
+      const now = new Date().toISOString();
 
-        setCurrentUser(cred.user);
-        setProfile(newProfile);
-        setActiveRole(newProfile.role);
-        setLoading(false);
-      }
+      const newSchool = {
+        id: newSchoolId,
+        name: schoolName,
+        code: newSchoolId.slice(-8).toUpperCase(),
+        address: '',
+        phone: '',
+        email,
+        currency: 'CDF' as const,
+        schoolYear: '2026-2027',
+        matriculePrefix: '2026',
+        city: '',
+        province: '',
+        country: 'République Démocratique du Congo',
+        status: 'pending',
+        ownerId: cred.user.uid,
+        ownerEmail: email,
+        ownerName: name,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      const newProfile: UserProfile = {
+        id: cred.user.uid,
+        schoolId: newSchoolId,
+        email,
+        displayName: name,
+        role: 'admin',
+        active: true,
+        createdAt: now,
+      };
+
+      await setDoc(doc(db, 'schools', newSchoolId), newSchool);
+      await setDoc(
+        doc(db, 'schools', newSchoolId, 'users', cred.user.uid),
+        newProfile
+      );
+      await setDoc(
+        doc(db, 'userSchoolLinks', cred.user.uid),
+        {
+          schoolId: newSchoolId,
+          status: 'pending',
+          createdAt: now,
+        }
+      );
+
+      setSchoolId(newSchoolId);
+      setCurrentUser(cred.user);
+      setProfile(newProfile);
+      setActiveRole(newProfile.role);
+      setLoading(false);
     } catch (error) {
       authActionRef.current = null;
       setLoading(false);
-
       throw error;
     }
   };
-
   /**
    * DÉCONNEXION
    */
