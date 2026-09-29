@@ -13,7 +13,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ school }) => {
-  const { currentUser, signOut, signInWithGoogle } = useAuth();
+  const { currentUser, profile, signOut, signInWithGoogle } = useAuth();
 
   const schoolLocation = [school?.city, school?.province, school?.country]
     .filter(val => val && val.trim().length > 0)
@@ -23,6 +23,15 @@ export const Navbar: React.FC<NavbarProps> = ({ school }) => {
     currentUser?.displayName ||
     currentUser?.email?.split('@')[0] ||
     'Utilisateur';
+
+  const roleLabels: Record<string, string> = {
+    admin: 'Administrateur',
+    director: 'Directeur',
+    cashier: 'Caissier',
+    secretary: 'Secrétaire',
+  };
+
+  const roleLabel = roleLabels[profile?.role || ''] || 'Utilisateur';
 
   const initials = displayName
     .split(/\\s+/)
@@ -78,7 +87,7 @@ export const Navbar: React.FC<NavbarProps> = ({ school }) => {
                   {displayName}
                 </p>
                 <p className="text-[11px] text-slate-500 truncate max-w-[170px]">
-                  {currentUser.email || 'Compte utilisateur'}
+                  {roleLabel}
                 </p>
               </div>
 
