@@ -469,10 +469,12 @@ export const AuthProvider: React.FC<{
           pass
         );
 
-      if (authActionRef.current === 'signup') {
-        authActionRef.current = null;
+      // La création de l'école doit être liée directement au résultat
+      // de createUserWithEmailAndPassword. Le listener Firebase peut consommer
+      // authActionRef avant le retour de cette Promise.
+      authActionRef.current = null;
 
-        const newSchoolId = `school_${Date.now()}_${cred.user.uid.slice(0, 8)}`;
+      const newSchoolId = `school_${Date.now()}_${cred.user.uid.slice(0, 8)}`;
         const now = new Date().toISOString();
         const newSchool = {
           id: newSchoolId,
