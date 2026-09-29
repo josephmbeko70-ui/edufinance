@@ -343,7 +343,11 @@ export const AuthProvider: React.FC<{
          */
         setCurrentUser(user);
 
-        await loadUserProfile(user);
+        const authorized = await loadUserProfile(user);
+        if (!authorized) {
+          setCurrentUser(null);
+          await fbSignOut(auth);
+        }
 
         setLoading(false);
       }
