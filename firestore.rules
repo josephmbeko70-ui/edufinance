@@ -46,12 +46,12 @@ service cloud.firestore {
     }
 
     match /admins/{uid} {
-      allow read: if signedIn() && request.auth.uid == uid || isSuperAdmin();
+      allow read: if (signedIn() && request.auth.uid == uid) || isSuperAdmin();
       allow write: if isSuperAdmin();
     }
 
     match /userSchoolLinks/{uid} {
-      allow read: if signedIn() && request.auth.uid == uid || isSuperAdmin();
+      allow read: if (signedIn() && request.auth.uid == uid) || isSuperAdmin();
 
       allow create: if signedIn()
         && request.auth.uid == uid
@@ -59,7 +59,6 @@ service cloud.firestore {
         && request.resource.data.status == 'pending';
 
       allow update: if isSuperAdmin();
-
       allow delete: if isSuperAdmin();
     }
 
@@ -68,20 +67,13 @@ service cloud.firestore {
     }
 
     match /schools/{schoolId} {
-      // The creator may inspect and edit their own application.
-      // Super admins can inspect and manage every school.
-      // A school_admin can inspect only their own approved school.
       allow read: if isSuperAdmin() || ownsSchool(schoolId) || isSchoolAdminFor(schoolId);
 
-      // A new school can only be created by its authenticated owner,
-      // and it must start in pending status.
       allow create: if signedIn()
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.status == 'pending'
         && request.resource.data.id == schoolId;
 
-      // Approval/rejection remains a super-admin operation.
-      // Owners/school_admins may update only non-sensitive school information.
       allow update: if isSuperAdmin()
         || (
           (ownsSchool(schoolId) || isSchoolAdminFor(schoolId))
@@ -137,52 +129,52 @@ service cloud.firestore {
           );
 
         allow delete: if isSuperAdmin() || isSchoolAdminFor(schoolId);
+      }
 
-        match /sections/{sectionId} {
-          allow read, write: if isSuperAdmin() || isActiveSchoolMember(schoolId);
-        }
+      match /sections/{sectionId} {
+        allow read, write: if isSuperAdmin() || isActiveSchoolMember(schoolId);
+      }
 
-        match /classes/{classId} {
-          allow read, write: if isSuperAdmin() || isActiveSchoolMember(schoolId);
-        }
+      match /classes/{classId} {
+        allow read, write: if isSuperAdmin() || isActiveSchoolMember(schoolId);
+      }
 
-        match /options/{optionId} {
-          allow read, write: if isSuperAdmin() || isActiveSchoolMember(schoolId);
-        }
+      match /options/{optionId} {
+        allow read, write: if isSuperAdmin() || isActiveSchoolMember(schoolId);
+      }
 
-        match /students/{studentId} {
-          allow read, write: if isSuperAdmin() || isActiveSchoolMember(schoolId);
-        }
+      match /students/{studentId} {
+        allow read, write: if isSuperAdmin() || isActiveSchoolMember(schoolId);
+      }
 
-        match /feeTypes/{feeTypeId} {
-          allow read, write: if isSuperAdmin() || isActiveSchoolMember(schoolId);
-        }
+      match /feeTypes/{feeTypeId} {
+        allow read, write: if isSuperAdmin() || isActiveSchoolMember(schoolId);
+      }
 
-        match /studentCharges/{chargeId} {
-          allow read, write: if isSuperAdmin() || isActiveSchoolMember(schoolId);
-        }
+      match /studentCharges/{chargeId} {
+        allow read, write: if isSuperAdmin() || isActiveSchoolMember(schoolId);
+      }
 
-        match /payments/{paymentId} {
-          allow read, write: if isSuperAdmin() || isActiveSchoolMember(schoolId);
-        }
+      match /payments/{paymentId} {
+        allow read, write: if isSuperAdmin() || isActiveSchoolMember(schoolId);
+      }
 
-        match /paymentAllocations/{allocationId} {
-          allow read, write: if isSuperAdmin() || isActiveSchoolMember(schoolId);
-        }
+      match /paymentAllocations/{allocationId} {
+        allow read, write: if isSuperAdmin() || isActiveSchoolMember(schoolId);
+      }
 
-        match /receipts/{receiptId} {
-          allow read, write: if isSuperAdmin() || isActiveSchoolMember(schoolId);
-        }
+      match /receipts/{receiptId} {
+        allow read, write: if isSuperAdmin() || isActiveSchoolMember(schoolId);
+      }
 
-        match /cashOperations/{operationId} {
-          allow read, write: if isSuperAdmin() || isActiveSchoolMember(schoolId);
-        }
+      match /cashOperations/{operationId} {
+        allow read, write: if isSuperAdmin() || isActiveSchoolMember(schoolId);
+      }
 
-        match /auditLogs/{auditId} {
-          allow read: if isSuperAdmin() || isActiveSchoolMember(schoolId);
-          allow create: if isSuperAdmin() || isActiveSchoolMember(schoolId);
-          allow update, delete: if false;
-        }
+      match /auditLogs/{auditId} {
+        allow read: if isSuperAdmin() || isActiveSchoolMember(schoolId);
+        allow create: if isSuperAdmin() || isActiveSchoolMember(schoolId);
+        allow update, delete: if false;
       }
     }
   }
