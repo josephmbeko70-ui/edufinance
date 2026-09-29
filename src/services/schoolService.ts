@@ -1,3 +1,12 @@
+import { initializeApp, deleteApp } from 'firebase/app';
+import {
+  createUserWithEmailAndPassword,
+  getAuth,
+  inMemoryPersistence,
+  setPersistence,
+} from 'firebase/auth';
+import firebaseConfig from '../../firebase-applet-config.json';
+
 import {
   collection,
   doc,
@@ -1146,14 +1155,42 @@ export class SchoolService {
     schoolId: string,
     userData: Partial<UserProfile>,
     userId: string,
-    userEmail: string
+    userEmail: string,
+    password?: string
   ): Promise<UserProfile> {
     const p = `schools/${schoolId}/users`;
     try {
       const isNew = !userData.id;
       const id = userData.id || `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+      if (isNew && !password) {
+        throw new Error('Un mot de passe initial est obligatoire pour créer un utilisateur.');
+      }
+
+      let authUid = id;
+      let secondaryApp: ReturnType<typeof initializeApp> | null = null;
+
+      if (isNew) {
+        secondaryApp = initializeApp(firebaseConfig, `user-provisioning-${Date.now()}`);
+        const secondaryAuth = getAuth(secondaryApp);
+        await setPersistence(secondaryAuth, inMemoryPersistence);
+
+        try {
+          const credential = await createUserWithEmailAndPassword(
+            secondaryAuth,
+            userData.email || '',
+            password || ''
+          );
+          authUid = credential.user.uid;
+        } catch (error) {
+          await deleteApp(secondaryApp);
+          secondaryApp = null;
+          throw error;
+        }
+      }
+
       const userItem: UserProfile = {
-        id,
+        id: authUid,
         schoolId,
         email: userData.email || '',
         displayName: userData.displayName || userData.email?.split('@')[0] || 'Utilisateur',
@@ -1162,7 +1199,24 @@ export class SchoolService {
         createdAt: userData.createdAt || new Date().toISOString(),
       };
 
-      await setDoc(doc(db, 'schools', schoolId, 'users', id), userItem);
+      try {
+        await setDoc(doc(db, 'schools', schoolId, 'users', authUid), userItem);
+      } catch (error) {
+        if (isNew && secondaryApp) {
+          try {
+            await getAuth(secondaryApp).currentUser?.delete();
+          } catch {
+            // Best effort cleanup if Firestore rejects the profile write.
+          }
+          await deleteApp(secondaryApp);
+          secondaryApp = null;
+        }
+        throw error;
+      }
+
+      if (secondaryApp) {
+        await deleteApp(secondaryApp);
+      }
       await this.logAudit(
         schoolId,
         userId,
