@@ -14,6 +14,8 @@ import {
   Mail,
   User,
   ShieldAlert,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { School, UserProfile, UserRole } from '../types';
 import { SchoolService } from '../services/schoolService';
@@ -45,6 +47,8 @@ export const UsersPage: React.FC<UsersPageProps> = ({
   const [deleting, setDeleting] = useState(false);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
 
   // Form state for Add/Edit
   const [formData, setFormData] = useState<{
@@ -53,11 +57,15 @@ export const UsersPage: React.FC<UsersPageProps> = ({
     email: string;
     role: UserRole;
     active: boolean;
+    password: string;
+    passwordConfirmation: string;
   }>({
     displayName: '',
     email: '',
     role: 'secretary',
     active: true,
+    password: '',
+    passwordConfirmation: '',
   });
 
   const rolesConfig: {
@@ -116,7 +124,11 @@ export const UsersPage: React.FC<UsersPageProps> = ({
       email: '',
       role: 'secretary',
       active: true,
+      password: '',
+      passwordConfirmation: '',
     });
+    setShowPassword(false);
+    setShowPasswordConfirmation(false);
     setEditingUser(null);
     setIsAddModalOpen(true);
   };
@@ -128,14 +140,30 @@ export const UsersPage: React.FC<UsersPageProps> = ({
       email: u.email,
       role: u.role,
       active: u.active,
+      password: '',
+      passwordConfirmation: '',
     });
+    setShowPassword(false);
+    setShowPasswordConfirmation(false);
     setEditingUser(u);
     setIsAddModalOpen(true);
   };
 
   const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.email || !formData.displayName) return;
+    if (!formData.displayName.trim()) return;
+
+    if (!formData.id) {
+      if (formData.password.length < 6) {
+        setActionError('Le mot de passe doit contenir au moins 6 caractères.');
+        return;
+      }
+
+      if (formData.password !== formData.passwordConfirmation) {
+        setActionError('Les deux mots de passe ne correspondent pas.');
+        return;
+      }
+    }
 
     setSaving(true);
     setActionSuccess(null);
@@ -152,7 +180,8 @@ export const UsersPage: React.FC<UsersPageProps> = ({
           active: formData.active,
         },
         currentUser?.uid || 'admin',
-        currentUser?.email || profile?.email || 'admin@ecole.cd'
+        currentUser?.email || profile?.email || 'admin@ecole.cd',
+        !formData.id ? formData.password : undefined
       );
 
       await onRefreshData();
@@ -518,7 +547,15 @@ export const UsersPage: React.FC<UsersPageProps> = ({
                     required
                     value={formData.displayName}
                     onChange={(e) =>
-                      setFormData({ ...formData, displayName: e.target.value })
+                      setFormData({
+                        ...formData,
+                        displayName: e.target.value,
+                        email: `${e.target.value
+                          .normalize('NFD')
+                          .replace(/[\u0300-\u036f]/g, '')
+                          .replace(/[^a-zA-Z0-9]/g, '')
+                          .toLowerCase()}@edu.fin`,
+                      })
                     }
                     placeholder="Ex: Prof. Dieudonné Kalonji ou Mme Cécile Mbuyi"
                     className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-900 outline-none focus:ring-2 focus:ring-indigo-600"
@@ -528,22 +565,93 @@ export const UsersPage: React.FC<UsersPageProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                  Adresse Email Officielle *
+                  Identifiant EduFinance
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                   <input
                     type="email"
-                    required
                     value={formData.email}
-                    onChange={(e) =>
-                      setFormData({ ...formData, email: e.target.value })
-                    }
-                    placeholder="Ex: direction@college-boboto.cd"
-                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-900 outline-none focus:ring-2 focus:ring-indigo-600"
+                    readOnly
+                    placeholder="prenomnom@edu.fin"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-slate-700 outline-none"
                   />
                 </div>
+                {!editingUser && (
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Généré automatiquement à partir du nom complet : prenomnom@edu.fin
+                  </p>
+                )}
               </div>
+
+              {!editingUser && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Mot de passe *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        minLength={6}
+                        value={formData.password}
+                        onChange={(e) =>
+                          setFormData({ ...formData, password: e.target.value })
+                        }
+                        placeholder="Minimum 6 caractères"
+                        className="w-full pl-3 pr-10 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-900 outline-none focus:ring-2 focus:ring-indigo-600"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((value) => !value)}
+                        className="absolute right-2 top-1.5 p-1 text-slate-400 hover:text-slate-700"
+                        aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                      Confirmer le mot de passe *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPasswordConfirmation ? 'text' : 'password'}
+                        required
+                        minLength={6}
+                        value={formData.passwordConfirmation}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            passwordConfirmation: e.target.value,
+                          })
+                        }
+                        placeholder="Retapez le mot de passe"
+                        className="w-full pl-3 pr-10 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-900 outline-none focus:ring-2 focus:ring-indigo-600"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswordConfirmation((value) => !value)}
+                        className="absolute right-2 top-1.5 p-1 text-slate-400 hover:text-slate-700"
+                        aria-label={
+                          showPasswordConfirmation
+                            ? 'Masquer la confirmation du mot de passe'
+                            : 'Afficher la confirmation du mot de passe'
+                        }
+                      >
+                        {showPasswordConfirmation ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
