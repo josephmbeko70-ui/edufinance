@@ -72,7 +72,15 @@ service cloud.firestore {
     }
 
     match /schools/{schoolId} {
-      allow read: if isSuperAdmin() || ownsSchool(schoolId) || isSchoolAdminFor(schoolId);
+      allow read: if isSuperAdmin()
+        || ownsSchool(schoolId)
+        || isSchoolAdminFor(schoolId)
+        || (
+          signedIn()
+          && exists(/databases/$(database)/documents/userSchoolLinks/$(request.auth.uid))
+          && get(/databases/$(database)/documents/userSchoolLinks/$(request.auth.uid)).data.schoolId == schoolId
+          && get(/databases/$(database)/documents/userSchoolLinks/$(request.auth.uid)).data.status == 'active'
+        );
 
       allow create: if signedIn()
         && request.resource.data.ownerId == request.auth.uid
