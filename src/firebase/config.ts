@@ -1,15 +1,15 @@
 import { initializeApp } from 'firebase/app';
-import { initializeAuth, browserLocalPersistence, indexedDBLocalPersistence } from 'firebase/auth';
+import { initializeAuth, browserLocalPersistence } from 'firebase/auth';
 import { doc, getDocFromServer, getFirestore } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
-// Les deux applications utilisent explicitement la même persistance locale.
-// Elles sont servies sous le même hôte GitHub Pages, donc la session Firebase
-// peut être relue en passant de /edufinance/ à /edufinance-admin/.
+// Pro et Admin utilisent exactement la même persistance localStorage.
+// Les deux applications sont sous la même origine GitHub Pages, donc la
+// session Firebase est partagée entre /edufinance/ et /edufinance-admin/.
 export const auth = initializeAuth(app, {
-  persistence: [indexedDBLocalPersistence, browserLocalPersistence],
+  persistence: browserLocalPersistence,
 });
 
 export enum OperationType {
