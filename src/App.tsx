@@ -39,7 +39,7 @@ import {
 import { Loader2 } from 'lucide-react';
 
 function MainApp() {
-  const { currentUser, loading: authLoading, schoolId, role } = useAuth();
+  const { currentUser, profile, loading: authLoading, schoolId, role } = useAuth();
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
@@ -239,7 +239,7 @@ function MainApp() {
   }, [schoolId, activeTab]);
 
   useEffect(() => {
-    if (currentUser && !currentUser.isAnonymous) {
+    if (currentUser && !currentUser.isAnonymous && profile && profile.schoolId === schoolId && schoolId) {
       setLoading(true);
       fetchData();
     }
@@ -309,24 +309,20 @@ function MainApp() {
     );
   }
 
-  // Fallback school object if none
-  const currentSchool: School = school || {
-    id: schoolId,
-    name: 'Complexe Scolaire Mgr Bokeleale',
-    code: 'CSMB',
-    address: 'Avenue de la Paix, Gombe',
-    city: 'Kinshasa',
-    province: 'Kinshasa',
-    country: 'République Démocratique du Congo',
-    phone: '+243 81 555 0100',
-    email: 'direction@bokeleale.cd',
-    currency: 'CDF',
-    schoolYear: '2026-2027',
-    matriculePrefix: '2026',
-    status: 'active',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
+  // Aucune école fictive : l'espace financier ne s'ouvre que lorsque
+  // AuthContext a résolu une école active réelle depuis userSchoolLinks/{uid}.
+  if (!profile || !schoolId || profile.schoolId !== schoolId || !school) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-300">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-indigo-400" />
+          <p className="text-sm">Vérification de votre établissement...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const currentSchool: School = school;
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-900 selection:bg-indigo-500 selection:text-white">
