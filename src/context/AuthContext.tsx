@@ -137,78 +137,66 @@ export const AuthProvider: React.FC<{
   /**
    * Charge ou crée le profil utilisateur.
    */
-  const loadUserProfile = async (user: FirebaseUser) => {
+  const loadUserProfile = async (user: FirebaseUser): Promise<boolean> => {
     try {
-      let resolvedSchoolId = schoolId;
+      // Le contexte école est déterminé exclusivement par la liaison Firestore.
+      // Aucun DEFAULT_SCHOOL_ID ne doit être utilisé pour une session utilisateur.
       const linkSnap = await getDoc(doc(db, 'userSchoolLinks', user.uid));
-      if (linkSnap.exists() && linkSnap.data().schoolId) {
-        resolvedSchoolId = String(linkSnap.data().schoolId);
-        if (resolvedSchoolId !== schoolId) setSchoolId(resolvedSchoolId);
-      }
-      const userDocRef = doc(
-        db,
-        'schools',
-        resolvedSchoolId,
-        'users',
-        user.uid
-      );
 
+      if (!linkSnap.exists()) {
+        console.warn('[EduFinance][AUTH] Aucune liaison école pour cet utilisateur.');
+        setProfile(null);
+        setActiveRole('admin');
+        return false;
+      }
+
+      const link = linkSnap.data() as { schoolId?: string; status?: string };
+      const resolvedSchoolId = typeof link.schoolId === 'string' ? link.schoolId.trim() : '';
+
+      if (!resolvedSchoolId || link.status !== 'active') {
+        console.warn('[EduFinance][AUTH] Liaison école absente ou non active:', link);
+        setProfile(null);
+        setActiveRole('admin');
+        return false;
+      }
+
+      const schoolSnap = await getDoc(doc(db, 'schools', resolvedSchoolId));
+
+      if (!schoolSnap.exists() || schoolSnap.data().status !== 'active') {
+        console.warn('[EduFinance][AUTH] École non active:', resolvedSchoolId);
+        setProfile(null);
+        setActiveRole('admin');
+        return false;
+      }
+
+      const userDocRef = doc(db, 'schools', resolvedSchoolId, 'users', user.uid);
       const snap = await getDoc(userDocRef);
 
-      const role: UserRole = 'admin';
-
-      if (snap.exists()) {
-        const data = snap.data() as UserProfile;
-
-        setProfile(data);
-        setActiveRole(data.role || role);
-      } else {
-        const newProfile: UserProfile = {
-          id: user.uid,
-          resolvedSchoolId,
-          email:
-            user.email || 'utilisateur@ecole.cd',
-          displayName:
-            user.displayName ||
-            user.email?.split('@')[0] ||
-            'Responsable Scolaire',
-          role,
-          active: true,
-          createdAt: new Date().toISOString(),
-        };
-
-        try {
-          await setDoc(userDocRef, newProfile);
-        } catch (error) {
-          console.warn(
-            'Impossible de créer le profil utilisateur:',
-            error
-          );
-        }
-
-        setProfile(newProfile);
-        setActiveRole(role);
+      if (!snap.exists()) {
+        console.warn('[EduFinance][AUTH] Profil école introuvable:', resolvedSchoolId);
+        setProfile(null);
+        setActiveRole('admin');
+        return false;
       }
+
+      const data = snap.data() as UserProfile;
+
+      if (data.schoolId !== resolvedSchoolId || data.active !== true) {
+        console.warn('[EduFinance][AUTH] Profil utilisateur invalide ou inactif.');
+        setProfile(null);
+        setActiveRole('admin');
+        return false;
+      }
+
+      if (resolvedSchoolId !== schoolId) setSchoolId(resolvedSchoolId);
+      setProfile(data);
+      setActiveRole(data.role || 'admin');
+      return true;
     } catch (error) {
-      console.error(
-        'Erreur chargement profil utilisateur:',
-        error
-      );
-
-      const fallbackProfile: UserProfile = {
-        id: user.uid,
-        schoolId,
-        email:
-          user.email || 'admin@ecole.cd',
-        displayName:
-          user.displayName || 'Administrateur',
-        role: 'admin',
-        active: true,
-        createdAt: new Date().toISOString(),
-      };
-
-      setProfile(fallbackProfile);
-      setActiveRole(fallbackProfile.role);
+      console.error('Erreur chargement profil utilisateur:', error);
+      setProfile(null);
+      setActiveRole('admin');
+      return false;
     }
   };
 
@@ -234,7 +222,12 @@ export const AuthProvider: React.FC<{
       }
     }
 
-    await loadUserProfile(user);
+    const authorized = await loadUserProfile(user);
+
+    if (!authorized) {
+      setCurrentUser(null);
+      await fbSignOut(auth);
+    }
 
     setLoading(false);
   };
