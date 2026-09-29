@@ -139,10 +139,16 @@ export const AuthProvider: React.FC<{
    */
   const loadUserProfile = async (user: FirebaseUser) => {
     try {
+      let resolvedSchoolId = schoolId;
+      const linkSnap = await getDoc(doc(db, 'userSchoolLinks', user.uid));
+      if (linkSnap.exists() && linkSnap.data().schoolId) {
+        resolvedSchoolId = String(linkSnap.data().schoolId);
+        if (resolvedSchoolId !== schoolId) setSchoolId(resolvedSchoolId);
+      }
       const userDocRef = doc(
         db,
         'schools',
-        schoolId,
+        resolvedSchoolId,
         'users',
         user.uid
       );
@@ -465,31 +471,41 @@ export const AuthProvider: React.FC<{
       if (authActionRef.current === 'signup') {
         authActionRef.current = null;
 
+        const newSchoolId = `school_${Date.now()}_${cred.user.uid.slice(0, 8)}`;
+        const now = new Date().toISOString();
+        const newSchool = {
+          id: newSchoolId,
+          name,
+          code: newSchoolId.slice(-8).toUpperCase(),
+          address: '',
+          phone: '',
+          email,
+          currency: 'CDF' as const,
+          schoolYear: '2026-2027',
+          matriculePrefix: '2026',
+          city: '',
+          province: '',
+          country: 'République Démocratique du Congo',
+          status: 'pending',
+          ownerId: cred.user.uid,
+          ownerEmail: email,
+          ownerName: name,
+          createdAt: now,
+          updatedAt: now,
+        };
         const newProfile: UserProfile = {
           id: cred.user.uid,
-          schoolId,
+          schoolId: newSchoolId,
           email,
           displayName: name,
-          role:
-            cred.user.email ===
-            'controlpolytra@gmail.com'
-              ? 'admin'
-              : role,
+          role: 'admin',
           active: true,
-          createdAt:
-            new Date().toISOString(),
+          createdAt: now,
         };
-
-        await setDoc(
-          doc(
-            db,
-            'schools',
-            schoolId,
-            'users',
-            cred.user.uid
-          ),
-          newProfile
-        );
+        await setDoc(doc(db, 'schools', newSchoolId), newSchool);
+        await setDoc(doc(db, 'schools', newSchoolId, 'users', cred.user.uid), newProfile);
+        await setDoc(doc(db, 'userSchoolLinks', cred.user.uid), { schoolId: newSchoolId, status: 'pending', createdAt: now });
+        setSchoolId(newSchoolId);
 
         setCurrentUser(cred.user);
         setProfile(newProfile);
