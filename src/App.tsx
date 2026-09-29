@@ -21,7 +21,6 @@ import { FinancialTestsPage } from './pages/FinancialTestsPage';
 import { ReceiptModal } from './components/common/ReceiptModal';
 import { PaymentModal } from './components/common/PaymentModal';
 import { SchoolService } from './services/schoolService';
-import { seedInitialDemoData } from './services/seedData';
 import {
   School,
   Student,
@@ -42,7 +41,6 @@ function MainApp() {
   const { currentUser, profile, loading: authLoading, schoolId, role } = useAuth();
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [loading, setLoading] = useState(true);
-  const [seeding, setSeeding] = useState(false);
 
   // Entities
   const [school, setSchool] = useState<School | null>(null);
@@ -245,22 +243,6 @@ function MainApp() {
     }
   }, [currentUser, fetchData]);
 
-  // Demo data is opt-in. Never auto-seed an empty production school:
-  // doing so can trigger extra writes and repeated full-dataset reads.
-  const handleSeedData = async () => {
-    setSeeding(true);
-    try {
-      await seedInitialDemoData(schoolId);
-      await fetchData();
-      alert('Données de démonstration chargées avec succès !');
-    } catch (err) {
-      console.error(err);
-      alert('Erreur lors du chargement des données démo.');
-    } finally {
-      setSeeding(false);
-    }
-  };
-
   // Open Payment modal helper
   const handleOpenPaymentModal = (student?: Student) => {
     if (student) {
@@ -329,8 +311,6 @@ function MainApp() {
       {/* Top Navbar */}
       <Navbar
         school={currentSchool}
-        onSeedData={handleSeedData}
-        seeding={seeding}
       />
 
       <div className="flex-1 flex overflow-hidden">
