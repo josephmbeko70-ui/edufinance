@@ -3,7 +3,6 @@ import {
   School as SchoolIcon,
   LogOut,
   UserRound,
-  ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { School } from '../../types';
